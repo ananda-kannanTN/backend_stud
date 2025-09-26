@@ -1,7 +1,7 @@
 fastapi
 uvicorn
-mysql-connector-python
 python-multipart
 pydantic
 mangum
-PyJWT
+mysql-connector-python
+pyjwt
