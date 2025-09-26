@@ -1,31 +1,27 @@
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
-import mysql.connector
 from starlette.middleware.cors import CORSMiddleware
-import jwt
 from datetime import datetime, timedelta
+import mysql.connector
+import jwt
 
 # ---------- App Setup ----------
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # allow all origins
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"]
 )
 
-# jwt
-SECRET_KEY = "secretkey"   # 🔑 change this in production
+# ---------- JWT Setup ----------
+SECRET_KEY = "secretkey"   # ⚠️ change this in production
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 5
-
-# security
 security = HTTPBearer()
 
-
-#Token create paniruken
 def create_token(email: str):
     expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     payload = {"sub": email, "exp": expire}
@@ -40,18 +36,16 @@ def verify_token(token: str):
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
-
-#Inga na credential vchiruken
 def auth(credentials: HTTPAuthorizationCredentials = Depends(security)):
     return verify_token(credentials.credentials)
 
+# ---------- DB Connection ----------
 def get_db_connection():
     return mysql.connector.connect(
         host="srv1834.hstgr.io",
         user="u651328475_batch_11",
         password="Batch_11",
-        database="u651328475_batch_11",
-
+        database="u651328475_batch_11"
     )
 
 # ---------- Pydantic Models ----------
@@ -67,7 +61,6 @@ class ResetPasswordRequest(BaseModel):
     email: str
     new_password: str
 
-
 class Register(BaseModel):
     reg: int
     name: str
@@ -76,17 +69,15 @@ class Register(BaseModel):
     address: str
     phone_no: str
 
-
 # ---------- Auth APIs ----------
 @app.post("/login")
 def login_user(data: LoginRequest):
     conn = get_db_connection()
-
-
     cursor = conn.cursor(dictionary=True)
     cursor.execute("SELECT * FROM ak_admin WHERE email=%s AND password=%s", (data.email, data.password))
     user = cursor.fetchone()
     conn.close()
+
     if not user:
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
@@ -95,7 +86,6 @@ def login_user(data: LoginRequest):
 
 
 PRIVATE_CODE = "leo"
-
 
 @app.post("/send-otp")
 def send_otp(data: OTPRequest):
@@ -112,7 +102,6 @@ def send_otp(data: OTPRequest):
         raise HTTPException(status_code=404, detail="Email not registered!")
 
     return {"success": True, "message": "OTP Verified. Proceed to Reset Password"}
-
 
 @app.post("/reset-password")
 def reset_password(data: ResetPasswordRequest):
