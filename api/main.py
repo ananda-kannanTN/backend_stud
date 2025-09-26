@@ -74,12 +74,12 @@ class Register(BaseModel):
     address: str
     phone_no: str
 
-# ---------- Root Endpoint ----------
+
 @app.get("/")
 def home():
-    return {"message": "Backend running successfully 🚀"}
+    return {"message": "Backend running successfully "}
 
-# ---------- Auth APIs ----------
+
 @app.post("/login")
 def login_user(data: LoginRequest):
     conn = get_db_connection()
@@ -125,7 +125,7 @@ def reset_password(data: ResetPasswordRequest):
     conn.close()
     return {"success": True, "message": "Password changed successfully"}
 
-# ---------- Student CRUD APIs ----------
+
 @app.get("/stud_data")
 def get_all_users(token: str = Depends(auth)):
     conn = get_db_connection()
