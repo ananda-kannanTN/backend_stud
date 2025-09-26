@@ -1,27 +1,32 @@
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
-from starlette.middleware.cors import CORSMiddleware
-from datetime import datetime, timedelta
 import mysql.connector
+from starlette.middleware.cors import CORSMiddleware
 import jwt
+from datetime import datetime, timedelta
+from mangum import Mangum
 
 # ---------- App Setup ----------
 app = FastAPI()
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # allow all origins
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"]
 )
 
-# ---------- JWT Setup ----------
-SECRET_KEY = "secretkey"   # ⚠️ change this in production
+# ---------- JWT Config ----------
+SECRET_KEY = "secretkey"   # 🔑 change this in production
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 5
+
+# security
 security = HTTPBearer()
 
+# ---------- Token Utils ----------
 def create_token(email: str):
     expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     payload = {"sub": email, "exp": expire}
@@ -39,13 +44,13 @@ def verify_token(token: str):
 def auth(credentials: HTTPAuthorizationCredentials = Depends(security)):
     return verify_token(credentials.credentials)
 
-# ---------- DB Connection ----------
+# ---------- Database Connection ----------
 def get_db_connection():
     return mysql.connector.connect(
         host="srv1834.hstgr.io",
         user="u651328475_batch_11",
         password="Batch_11",
-        database="u651328475_batch_11"
+        database="u651328475_batch_11",
     )
 
 # ---------- Pydantic Models ----------
@@ -69,6 +74,11 @@ class Register(BaseModel):
     address: str
     phone_no: str
 
+# ---------- Root Endpoint ----------
+@app.get("/")
+def home():
+    return {"message": "Backend running successfully 🚀"}
+
 # ---------- Auth APIs ----------
 @app.post("/login")
 def login_user(data: LoginRequest):
@@ -77,13 +87,11 @@ def login_user(data: LoginRequest):
     cursor.execute("SELECT * FROM ak_admin WHERE email=%s AND password=%s", (data.email, data.password))
     user = cursor.fetchone()
     conn.close()
-
     if not user:
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
     token = create_token(user["email"])
     return {"access_token": token, "token_type": "bearer"}
-
 
 PRIVATE_CODE = "leo"
 
@@ -116,7 +124,6 @@ def reset_password(data: ResetPasswordRequest):
     conn.commit()
     conn.close()
     return {"success": True, "message": "Password changed successfully"}
-
 
 # ---------- Student CRUD APIs ----------
 @app.get("/stud_data")
@@ -170,3 +177,6 @@ def update_user(reg_id: int, user: Register, token: str = Depends(auth)):
     conn.commit()
     conn.close()
     return {"status": "success", "message": "User updated successfully"}
+
+# ---------- For Vercel ----------
+handler = Mangum(app)
