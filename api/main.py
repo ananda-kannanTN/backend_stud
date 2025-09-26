@@ -1,14 +1,13 @@
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
-import mysql.connector
 from starlette.middleware.cors import CORSMiddleware
+import mysql.connector
 import jwt
 from datetime import datetime, timedelta
-from mangum import Mangum
 
 # ---------- App Setup ----------
-app = FastAPI()
+app = FastAPI(title="Student Management API")
 
 app.add_middleware(
     CORSMiddleware,
@@ -23,7 +22,6 @@ SECRET_KEY = "secretkey"   # 🔑 change this in production
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 5
 
-# security
 security = HTTPBearer()
 
 # ---------- Token Utils ----------
@@ -46,12 +44,16 @@ def auth(credentials: HTTPAuthorizationCredentials = Depends(security)):
 
 # ---------- Database Connection ----------
 def get_db_connection():
-    return mysql.connector.connect(
-        host="srv1834.hstgr.io",
-        user="u651328475_batch_11",
-        password="Batch_11",
-        database="u651328475_batch_11",
-    )
+    try:
+        conn = mysql.connector.connect(
+            host="srv1834.hstgr.io",
+            user="u651328475_batch_11",
+            password="Batch_11",
+            database="u651328475_batch_11",
+        )
+        return conn
+    except mysql.connector.Error as e:
+        raise HTTPException(status_code=500, detail=f"DB Connection Error: {str(e)}")
 
 # ---------- Pydantic Models ----------
 class LoginRequest(BaseModel):
@@ -74,19 +76,23 @@ class Register(BaseModel):
     address: str
     phone_no: str
 
-
+# ---------- Root ----------
 @app.get("/")
 def home():
     return {"message": "Backend running successfully "}
 
-
+# ---------- Auth APIs ----------
 @app.post("/login")
 def login_user(data: LoginRequest):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-    cursor.execute("SELECT * FROM ak_admin WHERE email=%s AND password=%s", (data.email, data.password))
+    cursor.execute(
+        "SELECT * FROM ak_admin WHERE email=%s AND password=%s", 
+        (data.email, data.password)
+    )
     user = cursor.fetchone()
     conn.close()
+
     if not user:
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
@@ -120,12 +126,15 @@ def reset_password(data: ResetPasswordRequest):
         conn.close()
         raise HTTPException(status_code=404, detail="Email not registered!")
 
-    cursor.execute("UPDATE ak_admin SET password=%s WHERE email=%s", (data.new_password, data.email))
+    cursor.execute(
+        "UPDATE ak_admin SET password=%s WHERE email=%s", 
+        (data.new_password, data.email)
+    )
     conn.commit()
     conn.close()
     return {"success": True, "message": "Password changed successfully"}
 
-
+# ---------- Student CRUD ----------
 @app.get("/stud_data")
 def get_all_users(token: str = Depends(auth)):
     conn = get_db_connection()
@@ -177,6 +186,3 @@ def update_user(reg_id: int, user: Register, token: str = Depends(auth)):
     conn.commit()
     conn.close()
     return {"status": "success", "message": "User updated successfully"}
-
-# ---------- For Vercel ----------
-handler = Mangum(app)
